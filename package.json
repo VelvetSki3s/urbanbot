@@ -4,10 +4,12 @@
   "description": "Bot centralita para Urban GPS",
   "main": "index.js",
   "scripts": {
+    "postinstall": "npx puppeteer browsers install chrome",
     "start": "node index.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
+    "puppeteer": "^24.4.0",
     "qrcode-terminal": "^0.12.0",
     "whatsapp-web.js": "^1.23.0"
   }
