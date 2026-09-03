@@ -2,9 +2,8 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const http = require('http');
-const puppeteer = require('puppeteer');
 
-// 1. Servidor HTTP para mantener activo el proceso en Render
+// 1. Servidor HTTP
 const port = process.env.PORT || 3000;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -13,7 +12,7 @@ http.createServer((req, res) => {
     console.log(`Servidor de mantenimiento activo en puerto ${port}`);
 });
 
-// 2. Configuración de Gemini API
+// 2. Configuración Gemini
 const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) {
     console.error('ERROR: La variable GEMINI_API_KEY no está configurada.');
@@ -52,12 +51,12 @@ REGLAS DE RESPUESTA:
 - Si reportan una clave con ubicación (ej. "@urbanbot 0-100 en sector centro"), confirma la alerta y la ubicación de forma inmediata.
 `;
 
-// 3. Inicialización de cliente con localización automática de Puppeteer
+// 3. Inicialización del cliente apuntando al ejecutable instalado en .cache
 const client = new Client({
     authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
     puppeteer: {
         headless: true,
-        executablePath: puppeteer.executablePath(),
+        executablePath: '/opt/render/project/src/.cache/chrome/linux-127.0.6533.88/chrome-linux64/chrome',
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -71,7 +70,7 @@ const client = new Client({
     }
 });
 
-// QR en consola
+// QR y Eventos
 client.on('qr', (qr) => {
     console.log('\n====================================================');
     console.log('--- CÓDIGO QR GENERADO (ESCANEAR DESDE WHATSAPP) ---');
@@ -83,7 +82,6 @@ client.on('ready', () => {
     console.log('✅ Urbanbot se ha conectado correctamente a WhatsApp.');
 });
 
-// 4. Procesamiento de mensajes
 client.on('message', async (msg) => {
     try {
         const chat = await msg.getChat();
