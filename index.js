@@ -1,54 +1,55 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
-const { GoogleGenerativeAI } = require('@google/generative-ai'); // <--- Importación correcta
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const http = require('http');
 
-// Servidor HTTP de mantenimiento para Render
+// 1. Servidor HTTP para Render (evita cierres por falta de puerto)
 const port = process.env.PORT || 3000;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('🤖 Urbanbot activo.');
-}).listen(port);
+}).listen(port, () => {
+    console.log(`Servidor de mantenimiento activo en puerto ${port}`);
+});
 
-// Inicialización de Gemini
+// 2. Configuración de Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const http = require('http');
-
-// -------------------------------------------------------------
-// 1. Servidor HTTP para Render (mantiene el servicio activo)const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const http = require('http');
-
-// -------------------------------------------------------------
-// 1. Servidor HTTP para Render (mantiene el servicio activo)
-// -------------------------------------------------------------
-const port = process.env.PORT || 3000;
-http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('🤖 Urbanbot activo y funcionando.');
-}).listen(port, () => {
-    console.log(`Servidor de mantenimiento escuchando en el puerto ${port}`);
-});
-
-// -------------------------------------------------------------
-// 2. Inicialización de Google Gemini API
-// -------------------------------------------------------------
-const apiKey = process.env.GEMINI_API_KEY;
-if (!apiKey) {
-    console.error('ERROR: No se ha configurado la variable de entorno GEMINI_API_KEY.');
-}
-const genAI = new GoogleGenerativeAI(apiKey);
 const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-// -------------------------------------------------------------
-// 3. Configuración del Cliente de WhatsApp
-// -------------------------------------------------------------
+const INSTRUCCIONES_URBANBOT = `
+Eres urbanbot, la centralita virtual de "Urban GPS", un grupo de cuidado mutuo de conductores enfocado en el trabajo seguro en ruta.
+Tu función es brindar soporte rápido, conciso (máximo 2 a 3 líneas) y muy directo para no distraer a los conductores al volante.
+
+PROTOCOLOS Y REGLAS DEL GRUPO URBAN GPS:
+1. Seguridad en Ruta: Recordar mantener ubicación en tiempo real activa al estar en ruta y desactivarla al finalizar la jornada.
+2. Protocolo Nocturno: En turno de noche es clave reportar punto A (origen) y punto B (destino) para monitorear el viaje.
+3. PROTOCOLO ESPECIAL CLAVE 0-30 (Pasajero conflictivo):
+   - Al activarse esta clave, debes indicar de inmediato: "SILENCIO RADIAL EN ZELLO. Mantener frecuencia despejada para el monitoreo del colega afectado."
+4. Normas del Grupo: Mantener respeto mutuo. No se toleran insultos ni acoso.
+
+MANUAL DE CLAVES URBAN:
+- EMERGENCIAS Y ESTADOS:
+  • CLAVE 1: Conductor caído (Pedir ubicación urgente a los móviles).
+  • CLAVE 10: Fuera de servicio.
+
+- CÓDIGOS DE ESTADO (SERIE 10):
+  • 10-0: Persecución | 10-1: Pasajeros a bordo | 10-2: Retornar a central | 10-3: Mantener en línea
+  • 10-4: Copiado | 10-5: Negativo | 10-6: Ocupado | 10-7: Disponible | 10-8: De vuelta a la ruta | 10-9: Repetir mensaje
+
+- FISCALIZACIÓN Y SERVICIOS (SERIE 0):
+  • 0-10: Falsa alarma | 0-20: Control MTT | 0-30: Pasajero conflictivo (Aplicar silencio radial) | 0-40: Positivo/Negativo | 0-50: Viaje falso (Evitar)
+  • 0-60: Viaje finalizado | 0-70: Apoyo mecánico | 0-80: Vía despejada | 0-90: Congestión
+  • 0-100: Control Carabineros | 0-200: Control Municipales | 0-300: Control Alcotest | 0-400: Control con grúa | 0-500: Control PDI
+
+REGLAS DE RESPUESTA:
+- Preséntate o responde como urbanbot.
+- Responde siempre con tono de colega, profesional, directo y breve.
+- Si reportan una clave con ubicación (ej. "@urbanbot 0-100 en sector centro"), confirma la alerta y la ubicación de forma inmediata.
+`;
+
+// 3. Inicialización del cliente de WhatsApp
 const client = new Client({
-    authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
+    authStrategy: new LocalAuth(),
     puppeteer: {
         headless: true,
         args: [
@@ -58,114 +59,51 @@ const client = new Client({
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
             '--no-zygote',
+            '--single-process',
             '--disable-gpu'
         ]
     }
 });
 
-// Generación del código QR en los logs de Render
 client.on('qr', (qr) => {
-    console.log('--- CÓDIGO QR GENERADO (Escanea con WhatsApp) ---');
+    console.log('--- CÓDIGO QR GENERADO ---');
     qrcode.generate(qr, { small: true });
 });
 
-// Confirmación de inicio de sesión
 client.on('ready', () => {
-    console.log('✅ Cliente de WhatsApp vinculado y listo.');
+    console.log('✅ Urbanbot está conectado y listo.');
 });
 
-// -------------------------------------------------------------
-// 4. Recepción y respuesta a mensajes
-// -------------------------------------------------------------
+// 4. Procesamiento de mensajes
 client.on('message', async (msg) => {
-    // Ignorar mensajes enviados por el propio bot o mensajes de grupos sin mención directa
-    if (msg.fromMe || msg.isStatus) return;
-
     try {
-        console.log(`Mensaje recibido de ${msg.from}: ${msg.body}`);
+        const chat = await msg.getChat();
+        if (!chat.isGroup) return;
 
-        // Generar respuesta con la API de Gemini
-        const result = await model.generateContent(msg.body);
-        const responseText = result.response.text();
+        const texto = msg.body.toLowerCase();
+        const numeroBot = '56951031443';
 
-        // Enviar respuesta por WhatsApp
-        await msg.reply(responseText);
+        const menciones = await msg.getMentions();
+        const meMencionaronPorTag = menciones.some(contacto => contacto.number === numeroBot || contacto.isMe);
+        const meMencionaronPorTexto = msg.body.includes(numeroBot) || texto.includes('urbanbot') || texto.includes('bot');
+
+        if (meMencionaronPorTag || meMencionaronPorTexto) {
+            const textoLimpio = msg.body.replace(/@\d+/g, '').replace(/@\w+/g, '').trim();
+
+            if (!textoLimpio) {
+                await msg.reply('¿En qué puedo ayudarte, colega? Soy urbanbot.');
+                return;
+            }
+
+            const prompt = `${INSTRUCCIONES_URBANBOT}\n\nConductor dice: ${textoLimpio}`;
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+
+            await msg.reply(response.text());
+        }
     } catch (error) {
-        console.error('Error procesando el mensaje con Gemini:', error);
+        console.error('Error procesando mensaje:', error);
     }
 });
 
-// Iniciar sesión
-client.initialize();
-// -------------------------------------------------------------
-const port = process.env.PORT || 3000;
-http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('🤖 Urbanbot activo y funcionando.');
-}).listen(port, () => {
-    console.log(`Servidor de mantenimiento escuchando en el puerto ${port}`);
-});
-
-// -------------------------------------------------------------
-// 2. Inicialización de Google Gemini API
-// -------------------------------------------------------------
-const apiKey = process.env.GEMINI_API_KEY;
-if (!apiKey) {
-    console.error('ERROR: No se ha configurado la variable de entorno GEMINI_API_KEY.');
-}
-const genAI = new GoogleGenerativeAI(apiKey);
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
-// -------------------------------------------------------------
-// 3. Configuración del Cliente de WhatsApp
-// -------------------------------------------------------------
-const client = new Client({
-    authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
-    puppeteer: {
-        headless: true,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--disable-gpu'
-        ]
-    }
-});
-
-// Generación del código QR en los logs de Render
-client.on('qr', (qr) => {
-    console.log('--- CÓDIGO QR GENERADO (Escanea con WhatsApp) ---');
-    qrcode.generate(qr, { small: true });
-});
-
-// Confirmación de inicio de sesión
-client.on('ready', () => {
-    console.log('✅ Cliente de WhatsApp vinculado y listo.');
-});
-
-// -------------------------------------------------------------
-// 4. Recepción y respuesta a mensajes
-// -------------------------------------------------------------
-client.on('message', async (msg) => {
-    // Ignorar mensajes enviados por el propio bot o mensajes de grupos sin mención directa
-    if (msg.fromMe || msg.isStatus) return;
-
-    try {
-        console.log(`Mensaje recibido de ${msg.from}: ${msg.body}`);
-
-        // Generar respuesta con la API de Gemini
-        const result = await model.generateContent(msg.body);
-        const responseText = result.response.text();
-
-        // Enviar respuesta por WhatsApp
-        await msg.reply(responseText);
-    } catch (error) {
-        console.error('Error procesando el mensaje con Gemini:', error);
-    }
-});
-
-// Iniciar sesión
 client.initialize();
