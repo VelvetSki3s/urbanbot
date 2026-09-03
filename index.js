@@ -1,8 +1,9 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
-const { GoogleGenAI } = require('@google/genai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
 const client = new Client({
     authStrategy: new LocalAuth(),
@@ -79,14 +80,11 @@ client.on('message_create', async (msg) => {
                 return;
             }
 
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash-lite',
-                contents: [
-                    { role: 'user', parts: [{ text: `${INSTRUCCIONES_URBANBOT}\n\nConductor dice: ${textoLimpio}` }] }
-                ]
-            });
+            const prompt = `${INSTRUCCIONES_URBANBOT}\n\nConductor dice: ${textoLimpio}`;
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
 
-            await msg.reply(response.text);
+            await msg.reply(response.text());
         }
     } catch (error) {
         console.error('Error al procesar mensaje:', error);
