@@ -1,17 +1,13 @@
 {
   "name": "urbanbot",
   "version": "1.0.0",
-  "description": "Bot centralita para Urban GPS",
+  "description": "Bot de WhatsApp para la comunidad de conductores",
   "main": "index.js",
   "scripts": {
-    "postinstall": "PUPPETEER_CACHE_DIR=./.cache npx puppeteer browsers install chrome",
     "start": "node index.js"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.21.0",
-    "express": "^4.19.2",
-    "puppeteer": "^24.4.0",
-    "qrcode": "^1.5.3",
-    "whatsapp-web.js": "^1.23.0"
+    "@google/genai": "^0.1.1",
+    "whatsapp-web.js": "^1.26.0"
   }
 }
