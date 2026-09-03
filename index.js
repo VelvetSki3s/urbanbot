@@ -1,18 +1,60 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
+const qrcodeTerminal = require('qrcode-terminal');
+const QRCode = require('qrcode'); // Utilizado para renderizar HTML
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const http = require('http');
 
-// 1. Servidor HTTP
+let qrCodeData = ''; // Variable global para guardar el QR más reciente
+
+// 1. Servidor HTTP para Render (Servicio activo y visualizador de QR)
 const port = process.env.PORT || 3000;
-http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
+    if (req.url === '/qr') {
+        if (!qrCodeData) {
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            return res.end('<h2>🤖 Urbanbot: No hay código QR activo. El bot ya puede estar conectado o iniciando...</h2>');
+        }
+        try {
+            const qrImageUrl = await QRCode.toDataURL(qrCodeData);
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            return res.end(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Urbanbot - Escanear QR</title>
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <style>
+                        body { font-family: Arial, sans-serif; text-align: center; background-color: #111b21; color: #e9edef; padding: 20px; }
+                        .card { background: #202c33; max-width: 400px; margin: 40px auto; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+                        img { width: 100%; max-width: 300px; border-radius: 8px; background: white; padding: 10px; }
+                        h1 { color: #00a884; font-size: 22px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="card">
+                        <h1>🤖 Urbanbot - WhatsApp</h1>
+                        <p>Escanea este código QR desde tu WhatsApp:</p>
+                        <img src="${qrImageUrl}" alt="Código QR" />
+                        <p style="font-size: 12px; color: #8696a0;">Actualiza la página si caduca la sesión.</p>
+                    </div>
+                </body>
+                </html>
+            `);
+        } catch (err) {
+            res.writeHead(500, { 'Content-Type': 'text/plain' });
+            return res.end('Error al generar la imagen del código QR.');
+        }
+    }
+
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('🤖 Urbanbot activo y en línea.');
-}).listen(port, () => {
-    console.log(`Servidor de mantenimiento activo en puerto ${port}`);
+    res.end('🤖 Urbanbot activo y en línea. Si necesitas ver el QR, ingresa a /qr');
 });
 
-// 2. Configuración Gemini
+server.listen(port, () => {
+    console.log(`Servidor web activo en puerto ${port}`);
+});
+
+// 2. Configuración de Gemini API
 const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) {
     console.error('ERROR: La variable GEMINI_API_KEY no está configurada.');
@@ -70,15 +112,18 @@ const client = new Client({
     }
 });
 
-// QR y Eventos
+// Guardar y mostrar QR
 client.on('qr', (qr) => {
+    qrCodeData = qr; // Almacena el QR para el enlace web
     console.log('\n====================================================');
-    console.log('--- CÓDIGO QR GENERADO (ESCANEAR DESDE WHATSAPP) ---');
+    console.log('--- CÓDIGO QR GENERADO ---');
+    console.log('Abre la URL de tu app agregando /qr para escanearlo.');
     console.log('====================================================\n');
-    qrcode.generate(qr, { small: true });
+    qrcodeTerminal.generate(qr, { small: true });
 });
 
 client.on('ready', () => {
+    qrCodeData = ''; // Limpiar el QR al conectar
     console.log('✅ Urbanbot se ha conectado correctamente a WhatsApp.');
 });
 
