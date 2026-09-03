@@ -2,6 +2,7 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const http = require('http');
+const puppeteer = require('puppeteer');
 
 // 1. Servidor HTTP para Render (mantiene el servicio activo)
 const port = process.env.PORT || 3000;
@@ -51,12 +52,12 @@ REGLAS DE RESPUESTA:
 - Si reportan una clave con ubicación (ej. "@urbanbot 0-100 en sector centro"), confirma la alerta y la ubicación de forma inmediata.
 `;
 
-// 3. Inicialización de WhatsApp Web con ruta fija a Chrome en Render
+// 3. Inicialización de WhatsApp Web detectando Chrome en .cache
 const client = new Client({
     authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
     puppeteer: {
         headless: true,
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome',
+        executablePath: puppeteer.executablePath(),
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -87,7 +88,6 @@ client.on('message', async (msg) => {
     try {
         const chat = await msg.getChat();
         
-        // En grupos solo responder si mencionan al bot o su nombre
         if (chat.isGroup) {
             const texto = msg.body.toLowerCase();
             const numeroBot = '56951031443';
