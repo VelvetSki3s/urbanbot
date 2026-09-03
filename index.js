@@ -8,25 +8,41 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 let qrImageData = '';
+let lastQrTime = '';
 
-// Servidor web para ver el QR limpio
+// Servidor con auto-refresco cada 3 segundos
 app.get('/', (req, res) => {
     if (!qrImageData) {
-        return res.send('<h1 style="font-family:sans-serif;text-align:center;margin-top:50px;">El código QR se está generando o el bot ya está conectado...</h1>');
+        return res.send(`
+            <html>
+                <head>
+                    <meta http-equiv="refresh" content="4">
+                    <title>UrbanBot - Esperando QR</title>
+                </head>
+                <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;background:#f4f4f9;">
+                    <h2>Cargando / Generando código QR...</h2>
+                    <p>La página se refrescará automáticamente en unos segundos.</p>
+                </body>
+            </html>
+        `);
     }
     res.send(`
         <html>
-            <head><title>UrbanBot QR Code</title></head>
+            <head>
+                <meta http-equiv="refresh" content="3">
+                <title>UrbanBot QR Code</title>
+            </head>
             <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;background:#f4f4f9;">
                 <h2>Escanea este código QR con WhatsApp:</h2>
-                <img src="${qrImageData}" style="border:10px solid white;box-shadow:0 4px 10px rgba(0,0,0,0.1);max-width:300px;"/>
-                <p>Actualiza la página si caduca.</p>
+                <img src="${qrImageData}" style="border:10px solid white;box-shadow:0 4px 10px rgba(0,0,0,0.1);max-width:320px;"/>
+                <p style="color:#666;margin-top:15px;">Última actualización: <strong>${lastQrTime}</strong></p>
+                <p style="font-size:13px;color:#888;">(La pantalla se actualiza sola cada 3 segundos)</p>
             </body>
         </html>
     `);
 });
 
-app.listen(port, () => console.log(`Servidor QR corriendo en puerto ${port}`));
+app.listen(port, () => console.log(`Servidor de estado corriendo en puerto ${port}`));
 
 function getLocalChromePath() {
     const cacheBase = path.join(__dirname, '.cache', 'chrome');
@@ -41,7 +57,8 @@ function getLocalChromePath() {
 
 const chromeExecutable = getLocalChromePath();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const apiKey = process.env.GEMINI_API_KEY || 'DUMMY_KEY';
+const genAI = new GoogleGenerativeAI(apiKey);
 const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
 const client = new Client({
@@ -93,8 +110,9 @@ REGLAS DE RESPUESTA:
 `;
 
 client.on('qr', async (qr) => {
+    console.log('Nuevo QR generado por WhatsApp Web.');
     qrImageData = await QRCode.toDataURL(qr);
-    console.log('¡NUEVO CÓDIGO QR GENERADO! Abre la URL pública de tu web service para escanearlo.');
+    lastQrTime = new Date().toLocaleTimeString();
 });
 
 client.on('ready', () => {
@@ -130,4 +148,5 @@ client.on('message_create', async (msg) => {
     }
 });
 
-client.initialize();
+console.log('Iniciando cliente de WhatsApp...');
+client.initialize().catch(err => console.error('Error al inicializar client:', err));
