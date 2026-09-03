@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "render-build": "puppeteer browsers install chrome && npm install"
+    "render-build": "npm install && npx puppeteer browsers install chrome"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
