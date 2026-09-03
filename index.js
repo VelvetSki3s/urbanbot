@@ -1,3 +1,4 @@
+const path = require('path');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
@@ -11,11 +12,14 @@ Eres Urbanbot, un asistente virtual para un grupo de conductores.
 Responde siempre con un tono amigable, directo, colega y conciso.
 `;
 
-// Configuración del cliente de WhatsApp con la ruta explícita del ejecutable de Chrome
+// Ruta local donde se descarga Chrome dentro del directorio del proyecto
+const chromePath = path.join(process.cwd(), '.cache', 'chrome', 'linux-127.0.6533.88', 'chrome-linux64', 'chrome');
+
+// Configuración del cliente de WhatsApp
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome',
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || chromePath,
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -31,7 +35,7 @@ const client = new Client({
 
 // Evento cuando se genera un código QR
 client.on('qr', (qr) => {
-    console.log('Código QR recibido. Escanéalo desde los logs si tienes un visualizador o autentica el dispositivo.');
+    console.log('Código QR generado correctamente.');
 });
 
 // Evento cuando el bot está listo
