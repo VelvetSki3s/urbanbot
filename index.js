@@ -1,32 +1,56 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
-const { GoogleGenerativeAI } = require('@google/genai');
+const { GoogleGenerativeAI } = require('@google/generative-ai'); // <--- Importación correcta
 const http = require('http');
 
-// 1. SERVIDOR HTTP PARA RENDER (Evita el "No open ports detected" y reinicios)
+// Servidor HTTP de mantenimiento para Render
 const port = process.env.PORT || 3000;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('🤖 Urbanbot está en ejecución y escuchando eventos.');
+    res.end('🤖 Urbanbot activo.');
+}).listen(port);
+
+// Inicialización de Gemini
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });const { Client, LocalAuth } = require('whatsapp-web.js');
+const qrcode = require('qrcode-terminal');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const http = require('http');
+
+// -------------------------------------------------------------
+// 1. Servidor HTTP para Render (mantiene el servicio activo)const { Client, LocalAuth } = require('whatsapp-web.js');
+const qrcode = require('qrcode-terminal');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const http = require('http');
+
+// -------------------------------------------------------------
+// 1. Servidor HTTP para Render (mantiene el servicio activo)
+// -------------------------------------------------------------
+const port = process.env.PORT || 3000;
+http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('🤖 Urbanbot activo y funcionando.');
 }).listen(port, () => {
-    console.log(`Servidor HTTP de mantenimiento activo en puerto ${port}`);
+    console.log(`Servidor de mantenimiento escuchando en el puerto ${port}`);
 });
 
-// 2. CONFIGURACIÓN DE GEMINI AI
-// Asegúrate de tener la variable GEMINI_API_KEY en las Environment Variables de Render
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// -------------------------------------------------------------
+// 2. Inicialización de Google Gemini API
+// -------------------------------------------------------------
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) {
+    console.error('ERROR: No se ha configurado la variable de entorno GEMINI_API_KEY.');
+}
+const genAI = new GoogleGenerativeAI(apiKey);
 const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-const INSTRUCCIONES_URBANBOT = `
-Eres Urbanbot, un asistente virtual para un grupo de conductores de app en la región de Tarapacá.
-Responde de forma breve, concisa, profesional y con modismos locales chilenos de forma natural.
-Conoces claves de radio (0-30, controles, fiscalizaciones, etc.).
-`;
-
-// 3. INICIALIZACIÓN DE WHATSAPP WEB CLIENT
+// -------------------------------------------------------------
+// 3. Configuración del Cliente de WhatsApp
+// -------------------------------------------------------------
 const client = new Client({
-    authStrategy: new LocalAuth(),
+    authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
     puppeteer: {
+        headless: true,
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -34,57 +58,114 @@ const client = new Client({
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
             '--no-zygote',
-            '--single-process',
             '--disable-gpu'
         ]
     }
 });
 
-// Generar código QR en la consola de Render
+// Generación del código QR en los logs de Render
 client.on('qr', (qr) => {
-    console.log('Código QR recibido. Escanéalo desde tu WhatsApp:');
+    console.log('--- CÓDIGO QR GENERADO (Escanea con WhatsApp) ---');
     qrcode.generate(qr, { small: true });
 });
 
+// Confirmación de inicio de sesión
 client.on('ready', () => {
-    console.log('✅ Urbanbot está conectado y listo para recibir mensajes.');
+    console.log('✅ Cliente de WhatsApp vinculado y listo.');
 });
 
-// 4. LÓGICA DE PROCESAMIENTO DE MENSAJES EN GRUPOS
+// -------------------------------------------------------------
+// 4. Recepción y respuesta a mensajes
+// -------------------------------------------------------------
 client.on('message', async (msg) => {
+    // Ignorar mensajes enviados por el propio bot o mensajes de grupos sin mención directa
+    if (msg.fromMe || msg.isStatus) return;
+
     try {
-        const chat = await msg.getChat();
-        if (!chat.isGroup) return; // Solo responder en grupos
+        console.log(`Mensaje recibido de ${msg.from}: ${msg.body}`);
 
-        const texto = msg.body.toLowerCase();
-        const numeroBot = '56951031443'; // Número del bot sin el signo '+'
+        // Generar respuesta con la API de Gemini
+        const result = await model.generateContent(msg.body);
+        const responseText = result.response.text();
 
-        // Obtenemos objetos de mención de WhatsApp Web
-        const menciones = await msg.getMentions();
-
-        // Criterios de activación
-        const meMencionaronPorTag = menciones.some(contacto => contacto.number === numeroBot || contacto.isMe);
-        const meMencionaronPorTexto = msg.body.includes(numeroBot) || texto.includes('urbanbot') || texto.includes('bot');
-
-        if (meMencionaronPorTag || meMencionaronPorTexto) {
-            // Limpia el prompt quitando etiquetas (@56951031443, @Urbanbot, etc.)
-            const textoLimpio = msg.body.replace(/@\d+/g, '').replace(/@\w+/g, '').trim();
-
-            if (!textoLimpio) {
-                await msg.reply('¿En qué te puedo colaborar, colega? Escribe tu duda o consulta.');
-                return;
-            }
-
-            // Consultar a Gemini
-            const prompt = `${INSTRUCCIONES_URBANBOT}\n\nConductor pregunta: ${textoLimpio}`;
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-
-            await msg.reply(response.text());
-        }
+        // Enviar respuesta por WhatsApp
+        await msg.reply(responseText);
     } catch (error) {
-        console.error('Error al procesar el mensaje:', error);
+        console.error('Error procesando el mensaje con Gemini:', error);
     }
 });
 
+// Iniciar sesión
+client.initialize();
+// -------------------------------------------------------------
+const port = process.env.PORT || 3000;
+http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('🤖 Urbanbot activo y funcionando.');
+}).listen(port, () => {
+    console.log(`Servidor de mantenimiento escuchando en el puerto ${port}`);
+});
+
+// -------------------------------------------------------------
+// 2. Inicialización de Google Gemini API
+// -------------------------------------------------------------
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) {
+    console.error('ERROR: No se ha configurado la variable de entorno GEMINI_API_KEY.');
+}
+const genAI = new GoogleGenerativeAI(apiKey);
+const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+// -------------------------------------------------------------
+// 3. Configuración del Cliente de WhatsApp
+// -------------------------------------------------------------
+const client = new Client({
+    authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
+    puppeteer: {
+        headless: true,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--disable-gpu'
+        ]
+    }
+});
+
+// Generación del código QR en los logs de Render
+client.on('qr', (qr) => {
+    console.log('--- CÓDIGO QR GENERADO (Escanea con WhatsApp) ---');
+    qrcode.generate(qr, { small: true });
+});
+
+// Confirmación de inicio de sesión
+client.on('ready', () => {
+    console.log('✅ Cliente de WhatsApp vinculado y listo.');
+});
+
+// -------------------------------------------------------------
+// 4. Recepción y respuesta a mensajes
+// -------------------------------------------------------------
+client.on('message', async (msg) => {
+    // Ignorar mensajes enviados por el propio bot o mensajes de grupos sin mención directa
+    if (msg.fromMe || msg.isStatus) return;
+
+    try {
+        console.log(`Mensaje recibido de ${msg.from}: ${msg.body}`);
+
+        // Generar respuesta con la API de Gemini
+        const result = await model.generateContent(msg.body);
+        const responseText = result.response.text();
+
+        // Enviar respuesta por WhatsApp
+        await msg.reply(responseText);
+    } catch (error) {
+        console.error('Error procesando el mensaje con Gemini:', error);
+    }
+});
+
+// Iniciar sesión
 client.initialize();
