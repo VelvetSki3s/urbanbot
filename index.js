@@ -2,6 +2,12 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const puppeteer = require('puppeteer');
+const path = require('path');
+
+// Fijar la ruta de Puppeteer a la carpeta local del proyecto
+puppeteer.configuration = {
+    cacheDirectory: path.join(__dirname, '.cache')
+};
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
