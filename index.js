@@ -1,9 +1,11 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const { GoogleGenerativeAI } = require('@google/genai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Configuración de Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+// Resto del código...
 
 // Instrucciones del sistema para el bot
 const INSTRUCCIONES_URBANBOT = `
