@@ -5,15 +5,16 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const http = require('http');
 const puppeteer = require('puppeteer');
 
-// 1. Servidor HTTP para Render (Servicio activo y visualizador de QR)
-const port = process.env.PORT || 3000;
+// Variable global para almacenar el código QR generado
 let qrCodeData = '';
 
+// 1. Servidor HTTP para Render y visualización del QR
+const port = process.env.PORT || 3000;
 const server = http.createServer(async (req, res) => {
     if (req.url === '/qr') {
         if (!qrCodeData) {
             res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-            return res.end('<h2>🤖 Urbanbot: No hay código QR activo. El bot ya puede estar conectado o iniciando...</h2>');
+            return res.end('<h2>🤖 Urbanbot: No hay código QR activo. El bot ya está conectado o iniciando...</h2>');
         }
         try {
             const qrImageUrl = await QRCode.toDataURL(qrCodeData);
@@ -94,12 +95,12 @@ REGLAS DE RESPUESTA:
 - Si reportan una clave con ubicación (ej. "@urbanbot 0-100 en sector centro"), confirma la alerta y la ubicación de forma inmediata.
 `;
 
-// 3. Inicialización del cliente WhatsApp con ejecutable automático de Puppeteer
+// 3. Inicialización del cliente usando la ruta generada por .puppeteerrc.cjs
 const client = new Client({
     authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
     puppeteer: {
         headless: true,
-        executablePath: puppeteer.executablePath(),
+        executablePath: puppeteer.executablePath(), // Busca Chrome en la carpeta .cache local
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
