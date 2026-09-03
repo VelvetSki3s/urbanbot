@@ -4,10 +4,12 @@
   "description": "Bot de WhatsApp para la comunidad de conductores",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "render-build": "puppeteer browsers install chrome && npm install"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
+    "puppeteer": "^22.0.0",
     "whatsapp-web.js": "^1.26.0"
   }
 }
