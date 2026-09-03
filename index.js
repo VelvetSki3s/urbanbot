@@ -1,10 +1,33 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const express = require('express');
+const QRCode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
 
-// Obtener la ruta dinámica del Chrome instalado en .cache local
+const app = express();
+const port = process.env.PORT || 3000;
+let qrImageData = '';
+
+// Servidor web para ver el QR limpio
+app.get('/', (req, res) => {
+    if (!qrImageData) {
+        return res.send('<h1 style="font-family:sans-serif;text-align:center;margin-top:50px;">El código QR se está generando o el bot ya está conectado...</h1>');
+    }
+    res.send(`
+        <html>
+            <head><title>UrbanBot QR Code</title></head>
+            <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;background:#f4f4f9;">
+                <h2>Escanea este código QR con WhatsApp:</h2>
+                <img src="${qrImageData}" style="border:10px solid white;box-shadow:0 4px 10px rgba(0,0,0,0.1);max-width:300px;"/>
+                <p>Actualiza la página si caduca.</p>
+            </body>
+        </html>
+    `);
+});
+
+app.listen(port, () => console.log(`Servidor QR corriendo en puerto ${port}`));
+
 function getLocalChromePath() {
     const cacheBase = path.join(__dirname, '.cache', 'chrome');
     if (!fs.existsSync(cacheBase)) return null;
@@ -12,7 +35,6 @@ function getLocalChromePath() {
     const versions = fs.readdirSync(cacheBase);
     if (versions.length === 0) return null;
 
-    // Tomar la primera versión instalada
     const chromePath = path.join(cacheBase, versions[0], 'chrome-linux64', 'chrome');
     return fs.existsSync(chromePath) ? chromePath : null;
 }
@@ -70,14 +92,13 @@ REGLAS DE RESPUESTA:
 - Si reportan una clave con ubicación (ej. "@urbanbot 0-100 en sector centro"), confirma la alerta y la ubicación de forma inmediata.
 `;
 
-client.on('qr', (qr) => {
-    console.log('\n======================================================');
-    console.log('ESCANEA EL CÓDIGO QR CON EL WHATSAPP DE URBANBOT:');
-    console.log('======================================================\n');
-    qrcode.generate(qr, { small: true });
+client.on('qr', async (qr) => {
+    qrImageData = await QRCode.toDataURL(qr);
+    console.log('¡NUEVO CÓDIGO QR GENERADO! Abre la URL pública de tu web service para escanearlo.');
 });
 
 client.on('ready', () => {
+    qrImageData = '';
     console.log('\n ¡EXCELENTE! urbanbot está conectado y funcionando 24/7.');
 });
 
