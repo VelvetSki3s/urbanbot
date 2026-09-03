@@ -4,8 +4,7 @@
   "description": "Centralita virtual para el grupo Urban GPS",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "build": "npm install && PUPPETEER_CACHE_DIR=$PWD/.cache npx puppeteer browsers install chrome"
+    "start": "node index.js"
   },
   "keywords": [],
   "author": "",
