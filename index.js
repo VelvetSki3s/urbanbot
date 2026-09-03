@@ -1,22 +1,52 @@
+const { Client, LocalAuth } = require('whatsapp-web.js');
+const qrcode = require('qrcode-terminal');
+const { GoogleGenerativeAI } = require('@google/genai');
+
+// Configuración de Gemini
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+// Instrucciones del sistema para el bot
+const INSTRUCCIONES_URBANBOT = `
+Eres Urbanbot, un asistente virtual para un grupo de conductores.
+Responde con tono amigable, directo, colega y conciso.
+`;
+
+// Inicialización del cliente de WhatsApp
+const client = new Client({
+    authStrategy: new LocalAuth(),
+    puppeteer: {
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    }
+});
+
+// Evento para mostrar el código QR en la consola
+client.on('qr', (qr) => {
+    qrcode.generate(qr, { small: true });
+});
+
+// Evento cuando el bot está listo
+client.on('ready', () => {
+    console.log('¡Urbanbot está listo y conectado!');
+});
+
+// Evento principal para procesar mensajes
 client.on('message', async (msg) => {
     try {
         const chat = await msg.getChat();
         if (!chat.isGroup) return;
 
         const texto = msg.body.toLowerCase();
-        const numeroBot = '56951031443'; // Número del bot sin el signo +
+        const numeroBot = '56951031443'; // Número de teléfono del bot
         
-        // Obtenemos el listado de menciones en el mensaje
         const menciones = await msg.getMentions();
         
-        // Comprobamos si el bot fue mencionado por objeto, por número o por texto
         const estaMencionado = menciones.some(contacto => contacto.number === numeroBot) ||
                                msg.body.includes(numeroBot) ||
                                texto.includes('urbanbot') ||
                                texto.includes('bot');
 
         if (estaMencionado) {
-            // Eliminamos la etiqueta (@56951031443 o @Urbanbot) para dejar solo la consulta
             const textoLimpio = msg.body.replace(/@\d+/g, '').replace(/@\w+/g, '').trim();
 
             if (!textoLimpio) {
@@ -24,7 +54,6 @@ client.on('message', async (msg) => {
                 return;
             }
 
-            // Consulta a la API de Gemini
             const prompt = `${INSTRUCCIONES_URBANBOT}\n\nConductor dice: ${textoLimpio}`;
             const result = await model.generateContent(prompt);
             const response = await result.response;
@@ -35,3 +64,5 @@ client.on('message', async (msg) => {
         console.error('Error procesando mensaje:', error);
     }
 });
+
+client.initialize();
