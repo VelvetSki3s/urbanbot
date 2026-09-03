@@ -4,8 +4,7 @@
   "description": "Centralita virtual para el grupo Urban GPS",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "postinstall": "puppeteer browsers install chrome"
+    "start": "node index.js"
   },
   "keywords": [],
   "author": "",
