@@ -1,44 +1,52 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// Configuración de Gemini
+// Configuración de Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-// Resto del código...
-
-// Instrucciones del sistema para el bot
+// Instrucciones base del sistema para Urbanbot
 const INSTRUCCIONES_URBANBOT = `
 Eres Urbanbot, un asistente virtual para un grupo de conductores.
-Responde con tono amigable, directo, colega y conciso.
+Responde siempre con un tono amigable, directo, colega y conciso.
 `;
 
-// Inicialización del cliente de WhatsApp
+// Configuración del cliente de WhatsApp con la ruta explícita del ejecutable de Chrome
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome',
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process',
+            '--disable-gpu'
+        ]
     }
 });
 
-// Evento para mostrar el código QR en la consola
+// Evento cuando se genera un código QR
 client.on('qr', (qr) => {
-    console.log('QR recibido, escanéalo si es necesario.');
+    console.log('Código QR recibido. Escanéalo desde los logs si tienes un visualizador o autentica el dispositivo.');
 });
 
 // Evento cuando el bot está listo
 client.on('ready', () => {
-    console.log('¡Urbanbot está listo y conectado!');
+    console.log('¡Urbanbot está listo y conectado a WhatsApp!');
 });
 
-// Evento principal para procesar mensajes
+// Evento para procesar los mensajes recibidos
 client.on('message', async (msg) => {
     try {
         const chat = await msg.getChat();
         if (!chat.isGroup) return;
 
         const texto = msg.body.toLowerCase();
-        const numeroBot = '56951031443'; // Número de teléfono del bot
+        const numeroBot = '56951031443';
         
         const menciones = await msg.getMentions();
         
@@ -62,7 +70,7 @@ client.on('message', async (msg) => {
             await msg.reply(response.text());
         }
     } catch (error) {
-        console.error('Error procesando mensaje:', error);
+        console.error('Error al procesar el mensaje:', error);
     }
 });
 
