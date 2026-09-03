@@ -4,7 +4,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const http = require('http');
 const puppeteer = require('puppeteer');
 
-// 1. Servidor HTTP para Render (mantiene el servicio activo)
+// 1. Servidor HTTP para mantener activo el proceso en Render
 const port = process.env.PORT || 3000;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -52,7 +52,7 @@ REGLAS DE RESPUESTA:
 - Si reportan una clave con ubicación (ej. "@urbanbot 0-100 en sector centro"), confirma la alerta y la ubicación de forma inmediata.
 `;
 
-// 3. Inicialización de WhatsApp Web detectando Chrome en .cache
+// 3. Inicialización de cliente con localización automática de Puppeteer
 const client = new Client({
     authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
     puppeteer: {
@@ -71,7 +71,7 @@ const client = new Client({
     }
 });
 
-// Generar QR en los Logs de Render
+// QR en consola
 client.on('qr', (qr) => {
     console.log('\n====================================================');
     console.log('--- CÓDIGO QR GENERADO (ESCANEAR DESDE WHATSAPP) ---');
@@ -83,7 +83,7 @@ client.on('ready', () => {
     console.log('✅ Urbanbot se ha conectado correctamente a WhatsApp.');
 });
 
-// 4. Lógica de lectura y respuesta de mensajes
+// 4. Procesamiento de mensajes
 client.on('message', async (msg) => {
     try {
         const chat = await msg.getChat();
