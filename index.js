@@ -1,13 +1,23 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const puppeteer = require('puppeteer');
+const fs = require('fs');
 const path = require('path');
 
-// Fijar la ruta de Puppeteer a la carpeta local del proyecto
-puppeteer.configuration = {
-    cacheDirectory: path.join(__dirname, '.cache')
-};
+// Obtener la ruta dinámica del Chrome instalado en .cache local
+function getLocalChromePath() {
+    const cacheBase = path.join(__dirname, '.cache', 'chrome');
+    if (!fs.existsSync(cacheBase)) return null;
+
+    const versions = fs.readdirSync(cacheBase);
+    if (versions.length === 0) return null;
+
+    // Tomar la primera versión instalada
+    const chromePath = path.join(cacheBase, versions[0], 'chrome-linux64', 'chrome');
+    return fs.existsSync(chromePath) ? chromePath : null;
+}
+
+const chromeExecutable = getLocalChromePath();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
@@ -15,7 +25,7 @@ const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
-        executablePath: puppeteer.executablePath(),
+        executablePath: chromeExecutable || undefined,
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
