@@ -5,10 +5,11 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "render-build": "npm install && npx puppeteer browsers install chrome"
+    "render-build": "npm install && npx @puppeteer/browsers install chrome@127.0.6533.88 --path ./.cache"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
+    "@puppeteer/browsers": "^2.2.0",
     "puppeteer": "^22.0.0",
     "whatsapp-web.js": "^1.26.0"
   }
