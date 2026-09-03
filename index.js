@@ -3,17 +3,21 @@ const qrcode = require('qrcode-terminal');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const http = require('http');
 
-// 1. Servidor HTTP para Render (evita cierres por falta de puerto)
+// 1. Servidor HTTP para Render (mantiene el servicio activo)
 const port = process.env.PORT || 3000;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('🤖 Urbanbot activo.');
+    res.end('🤖 Urbanbot activo y en línea.');
 }).listen(port, () => {
     console.log(`Servidor de mantenimiento activo en puerto ${port}`);
 });
 
-// 2. Configuración de Gemini
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// 2. Configuración de Gemini API
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) {
+    console.error('ERROR: La variable GEMINI_API_KEY no está configurada.');
+}
+const genAI = new GoogleGenerativeAI(apiKey);
 const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
 const INSTRUCCIONES_URBANBOT = `
@@ -47,11 +51,12 @@ REGLAS DE RESPUESTA:
 - Si reportan una clave con ubicación (ej. "@urbanbot 0-100 en sector centro"), confirma la alerta y la ubicación de forma inmediata.
 `;
 
-// 3. Inicialización del cliente de WhatsApp
+// 3. Inicialización de WhatsApp Web con ruta fija a Chrome en Render
 const client = new Client({
-    authStrategy: new LocalAuth(),
+    authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
     puppeteer: {
         headless: true,
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome',
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -65,44 +70,50 @@ const client = new Client({
     }
 });
 
+// Generar QR en los Logs de Render
 client.on('qr', (qr) => {
-    console.log('--- CÓDIGO QR GENERADO ---');
+    console.log('\n====================================================');
+    console.log('--- CÓDIGO QR GENERADO (ESCANEAR DESDE WHATSAPP) ---');
+    console.log('====================================================\n');
     qrcode.generate(qr, { small: true });
 });
 
 client.on('ready', () => {
-    console.log('✅ Urbanbot está conectado y listo.');
+    console.log('✅ Urbanbot se ha conectado correctamente a WhatsApp.');
 });
 
-// 4. Procesamiento de mensajes
+// 4. Lógica de lectura y respuesta de mensajes
 client.on('message', async (msg) => {
     try {
         const chat = await msg.getChat();
-        if (!chat.isGroup) return;
+        
+        // En grupos solo responder si mencionan al bot o su nombre
+        if (chat.isGroup) {
+            const texto = msg.body.toLowerCase();
+            const numeroBot = '56951031443';
+            const menciones = await msg.getMentions();
 
-        const texto = msg.body.toLowerCase();
-        const numeroBot = '56951031443';
+            const meMencionaronPorTag = menciones.some(contacto => contacto.number === numeroBot || contacto.isMe);
+            const meMencionaronPorTexto = msg.body.includes(numeroBot) || texto.includes('urbanbot') || texto.includes('bot');
 
-        const menciones = await msg.getMentions();
-        const meMencionaronPorTag = menciones.some(contacto => contacto.number === numeroBot || contacto.isMe);
-        const meMencionaronPorTexto = msg.body.includes(numeroBot) || texto.includes('urbanbot') || texto.includes('bot');
-
-        if (meMencionaronPorTag || meMencionaronPorTexto) {
-            const textoLimpio = msg.body.replace(/@\d+/g, '').replace(/@\w+/g, '').trim();
-
-            if (!textoLimpio) {
-                await msg.reply('¿En qué puedo ayudarte, colega? Soy urbanbot.');
-                return;
-            }
-
-            const prompt = `${INSTRUCCIONES_URBANBOT}\n\nConductor dice: ${textoLimpio}`;
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-
-            await msg.reply(response.text());
+            if (!meMencionaronPorTag && !meMencionaronPorTexto) return;
         }
+
+        const textoLimpio = msg.body.replace(/@\d+/g, '').replace(/@\w+/g, '').trim();
+
+        if (!textoLimpio) {
+            await msg.reply('¿En qué puedo ayudarte, colega? Soy urbanbot.');
+            return;
+        }
+
+        const prompt = `${INSTRUCCIONES_URBANBOT}\n\nConductor dice: ${textoLimpio}`;
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text();
+
+        await msg.reply(responseText);
+
     } catch (error) {
-        console.error('Error procesando mensaje:', error);
+        console.error('Error al procesar el mensaje:', error);
     }
 });
 
