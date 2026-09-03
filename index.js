@@ -1,5 +1,4 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
 const { GoogleGenerativeAI } = require('@google/genai');
 
 // Configuración de Gemini
@@ -22,7 +21,7 @@ const client = new Client({
 
 // Evento para mostrar el código QR en la consola
 client.on('qr', (qr) => {
-    qrcode.generate(qr, { small: true });
+    console.log('QR recibido, escanéalo si es necesario.');
 });
 
 // Evento cuando el bot está listo
